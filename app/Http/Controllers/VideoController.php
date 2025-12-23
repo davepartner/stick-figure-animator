@@ -176,6 +176,16 @@ class VideoController extends Controller
         return response()->json([
             'status' => $prompt->status,
             'error_message' => $prompt->error_message,
+            'progress_percentage' => $prompt->progress_percentage ?? 0,
+            'current_stage' => $prompt->current_stage ?? 'Starting...',
+            'stage_text_completed' => (bool) $prompt->stage_text_completed,
+            'stage_voice_completed' => (bool) $prompt->stage_voice_completed,
+            'stage_images_completed' => (bool) $prompt->stage_images_completed,
+            'stage_video_completed' => (bool) $prompt->stage_video_completed,
+            'text_completed_at' => $prompt->text_completed_at ? $prompt->text_completed_at->diffForHumans() : null,
+            'voice_completed_at' => $prompt->voice_completed_at ? $prompt->voice_completed_at->diffForHumans() : null,
+            'images_completed_at' => $prompt->images_completed_at ? $prompt->images_completed_at->diffForHumans() : null,
+            'video_completed_at' => $prompt->video_completed_at ? $prompt->video_completed_at->diffForHumans() : null,
             'video' => $prompt->video ? [
                 'id' => $prompt->video->id,
                 'expires_at' => $prompt->video->expires_at->toIso8601String(),

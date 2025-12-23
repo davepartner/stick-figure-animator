@@ -57,21 +57,196 @@
                                 </div>
                             @endif
                             
-                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                                <div class="flex items-center">
-                                    <svg class="animate-spin h-5 w-5 text-yellow-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                    <div>
-                                        <p class="font-semibold text-yellow-800">{{ $prompt->status === 'processing' ? 'Generating your video...' : 'Waiting to start...' }}</p>
-                                        <p class="text-sm text-yellow-700 mt-1" id="statusMessage">
-                                            @if($prompt->status === 'processing')
-                                                Creating images and voiceover. This may take 2-5 minutes.
+                            <!-- Progress Tracker -->
+                            <div class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                                <!-- Progress Bar -->
+                                <div class="mb-6">
+                                    <div class="flex justify-between items-center mb-2">
+                                        <span class="text-sm font-medium text-gray-700" id="progressText">{{ $prompt->current_stage ?? 'Starting...' }}</span>
+                                        <span class="text-sm font-medium text-gray-700" id="progressPercentage">{{ $prompt->progress_percentage ?? 0 }}%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-3">
+                                        <div id="progressBar" class="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500" style="width: {{ $prompt->progress_percentage ?? 0 }}%"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Progress Steps -->
+                                <div class="space-y-4">
+                                    <!-- Step 1: Generate Text Script -->
+                                    <div class="flex items-start" id="step-text">
+                                        <div class="flex-shrink-0 mr-4">
+                                            @if($prompt->stage_text_completed)
+                                                <!-- Completed -->
+                                                <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                                                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                                    </svg>
+                                                </div>
+                                            @elseif($prompt->progress_percentage > 0 && !$prompt->stage_text_completed)
+                                                <!-- In Progress -->
+                                                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                                                    <svg class="animate-spin w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                </div>
                                             @else
-                                                Queued for processing. Started {{ $prompt->created_at->diffForHumans() }}.
+                                                <!-- Pending -->
+                                                <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+                                                    <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                                    </svg>
+                                                </div>
                                             @endif
-                                        </p>
+                                        </div>
+                                        <div class="flex-1">
+                                            <h4 class="text-base font-semibold {{ $prompt->stage_text_completed ? 'text-green-700' : 'text-gray-700' }}">1. Generate Story Script</h4>
+                                            <p class="text-sm text-gray-600 mt-1">
+                                                @if($prompt->stage_text_completed)
+                                                    ✓ Completed {{ $prompt->text_completed_at ? $prompt->text_completed_at->diffForHumans() : '' }}
+                                                @elseif($prompt->progress_percentage > 0 && !$prompt->stage_text_completed)
+                                                    Creating narrative from your prompt... (~30 seconds)
+                                                @else
+                                                    Waiting to start
+                                                @endif
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 2: Generate Voiceover -->
+                                    <div class="flex items-start" id="step-voice">
+                                        <div class="flex-shrink-0 mr-4">
+                                            @if($prompt->stage_voice_completed)
+                                                <!-- Completed -->
+                                                <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                                                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                                    </svg>
+                                                </div>
+                                            @elseif($prompt->stage_text_completed && !$prompt->stage_voice_completed)
+                                                <!-- In Progress -->
+                                                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                                                    <svg class="animate-spin w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                </div>
+                                            @else
+                                                <!-- Pending -->
+                                                <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+                                                    <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                                    </svg>
+                                                </div>
+                                            @endif
+                                        </div>
+                                        <div class="flex-1">
+                                            <h4 class="text-base font-semibold {{ $prompt->stage_voice_completed ? 'text-green-700' : 'text-gray-700' }}">2. Generate Voiceover</h4>
+                                            <p class="text-sm text-gray-600 mt-1">
+                                                @if($prompt->stage_voice_completed)
+                                                    ✓ Completed {{ $prompt->voice_completed_at ? $prompt->voice_completed_at->diffForHumans() : '' }}
+                                                @elseif($prompt->stage_text_completed && !$prompt->stage_voice_completed)
+                                                    Converting script to speech... (~20 seconds)
+                                                @else
+                                                    Waiting for script generation
+                                                @endif
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 3: Generate Images -->
+                                    <div class="flex items-start" id="step-images">
+                                        <div class="flex-shrink-0 mr-4">
+                                            @if($prompt->stage_images_completed)
+                                                <!-- Completed -->
+                                                <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                                                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                                    </svg>
+                                                </div>
+                                            @elseif($prompt->stage_voice_completed && !$prompt->stage_images_completed)
+                                                <!-- In Progress -->
+                                                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                                                    <svg class="animate-spin w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                </div>
+                                            @else
+                                                <!-- Pending -->
+                                                <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+                                                    <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                                    </svg>
+                                                </div>
+                                            @endif
+                                        </div>
+                                        <div class="flex-1">
+                                            <h4 class="text-base font-semibold {{ $prompt->stage_images_completed ? 'text-green-700' : 'text-gray-700' }}">3. Generate Stick Figure Images</h4>
+                                            <p class="text-sm text-gray-600 mt-1">
+                                                @if($prompt->stage_images_completed)
+                                                    ✓ Completed {{ $prompt->images_completed_at ? $prompt->images_completed_at->diffForHumans() : '' }}
+                                                @elseif($prompt->stage_voice_completed && !$prompt->stage_images_completed)
+                                                    Creating {{ ceil($prompt->duration_seconds * 0.33) }} images... (~2 minutes)
+                                                @else
+                                                    Waiting for voiceover generation
+                                                @endif
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Step 4: Assemble Video -->
+                                    <div class="flex items-start" id="step-video">
+                                        <div class="flex-shrink-0 mr-4">
+                                            @if($prompt->stage_video_completed)
+                                                <!-- Completed -->
+                                                <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                                                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                                    </svg>
+                                                </div>
+                                            @elseif($prompt->stage_images_completed && !$prompt->stage_video_completed)
+                                                <!-- In Progress -->
+                                                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                                                    <svg class="animate-spin w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                </div>
+                                            @else
+                                                <!-- Pending -->
+                                                <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+                                                    <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                                    </svg>
+                                                </div>
+                                            @endif
+                                        </div>
+                                        <div class="flex-1">
+                                            <h4 class="text-base font-semibold {{ $prompt->stage_video_completed ? 'text-green-700' : 'text-gray-700' }}">4. Assemble Final Video</h4>
+                                            <p class="text-sm text-gray-600 mt-1">
+                                                @if($prompt->stage_video_completed)
+                                                    ✓ Completed {{ $prompt->video_completed_at ? $prompt->video_completed_at->diffForHumans() : '' }}
+                                                @elseif($prompt->stage_images_completed && !$prompt->stage_video_completed)
+                                                    Combining images and audio... (~10 seconds)
+                                                @else
+                                                    Waiting for image generation
+                                                @endif
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Can Exit Message -->
+                                <div class="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <div class="flex items-start">
+                                        <svg class="h-5 w-5 text-blue-600 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div>
+                                            <p class="text-sm font-medium text-blue-800">You can safely close this page</p>
+                                            <p class="text-xs text-blue-700 mt-1">Your video is being generated in the background. You'll receive an email notification when it's ready!</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -206,17 +381,96 @@
 
     @if($prompt->status === 'pending' || $prompt->status === 'processing')
     <script>
-        // Poll for status updates every 5 seconds
+        // Poll for status updates every 3 seconds
         let pollInterval = setInterval(function() {
             fetch('{{ route("videos.check-status", $prompt->id) }}')
                 .then(response => response.json())
                 .then(data => {
+                    // Update progress bar
+                    const progressBar = document.getElementById('progressBar');
+                    const progressText = document.getElementById('progressText');
+                    const progressPercentage = document.getElementById('progressPercentage');
+                    
+                    if (progressBar) {
+                        progressBar.style.width = data.progress_percentage + '%';
+                    }
+                    if (progressText) {
+                        progressText.textContent = data.current_stage;
+                    }
+                    if (progressPercentage) {
+                        progressPercentage.textContent = data.progress_percentage + '%';
+                    }
+
+                    // Update step 1: Text Generation
+                    updateStep('text', data.stage_text_completed, 
+                        data.progress_percentage > 0 && !data.stage_text_completed,
+                        data.text_completed_at);
+
+                    // Update step 2: Voice Generation
+                    updateStep('voice', data.stage_voice_completed,
+                        data.stage_text_completed && !data.stage_voice_completed,
+                        data.voice_completed_at);
+
+                    // Update step 3: Image Generation
+                    updateStep('images', data.stage_images_completed,
+                        data.stage_voice_completed && !data.stage_images_completed,
+                        data.images_completed_at);
+
+                    // Update step 4: Video Assembly
+                    updateStep('video', data.stage_video_completed,
+                        data.stage_images_completed && !data.stage_video_completed,
+                        data.video_completed_at);
+
+                    // Reload page when completed or failed
                     if (data.status === 'completed' || data.status === 'failed') {
                         clearInterval(pollInterval);
                         location.reload();
                     }
                 });
-        }, 5000);
+        }, 3000);
+
+        function updateStep(stepName, isCompleted, isInProgress, completedTime) {
+            const stepElement = document.getElementById('step-' + stepName);
+            if (!stepElement) return;
+
+            const iconContainer = stepElement.querySelector('.flex-shrink-0');
+            const statusText = stepElement.querySelector('.text-sm');
+            const titleElement = stepElement.querySelector('h4');
+
+            if (isCompleted) {
+                // Show green checkmark
+                iconContainer.innerHTML = `
+                    <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    </div>
+                `;
+                titleElement.className = 'text-base font-semibold text-green-700';
+                statusText.textContent = '✓ Completed ' + (completedTime || '');
+            } else if (isInProgress) {
+                // Show blue spinner
+                iconContainer.innerHTML = `
+                    <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                        <svg class="animate-spin w-6 h-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                `;
+                titleElement.className = 'text-base font-semibold text-blue-700';
+            } else {
+                // Show gray pending icon
+                iconContainer.innerHTML = `
+                    <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                    </div>
+                `;
+                titleElement.className = 'text-base font-semibold text-gray-700';
+            }
+        }
     </script>
     @endif
 

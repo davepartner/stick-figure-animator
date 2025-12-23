@@ -10,6 +10,7 @@ use App\Services\TextGenerationService;
 use App\Services\ImageGenerationService;
 use App\Services\VoiceGenerationService;
 use App\Services\VideoAssemblyService;
+use App\Services\EmailNotificationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -46,7 +47,11 @@ class VideoGenerationJob implements ShouldQueue
 
         try {
             // Update status to processing
-            $prompt->update(['status' => 'processing']);
+            $prompt->update([
+                'status' => 'processing',
+                'progress_percentage' => 0,
+                'current_stage' => 'Generating story script...',
+            ]);
 
             Log::info("Starting video generation for prompt ID: {$this->promptId}");
 
@@ -64,6 +69,10 @@ class VideoGenerationJob implements ShouldQueue
             $prompt->update([
                 'generated_script' => $storyResult['script'],
                 'scene_descriptions' => $storyResult['scenes'],
+                'stage_text_completed' => true,
+                'text_completed_at' => now(),
+                'progress_percentage' => 25,
+                'current_stage' => 'Generating voiceover...',
             ]);
 
             $totalCost += $storyResult['cost'];
@@ -79,6 +88,13 @@ class VideoGenerationJob implements ShouldQueue
 
             $totalCost += $voiceResult['cost'];
             Log::info("Voiceover generated. Cost: $" . $voiceResult['cost']);
+            
+            $prompt->update([
+                'stage_voice_completed' => true,
+                'voice_completed_at' => now(),
+                'progress_percentage' => 50,
+                'current_stage' => 'Generating images...',
+            ]);
 
             // Step 3: Generate images for each scene
             Log::info("Generating images for " . count($storyResult['scenes']) . " scenes...");
@@ -90,6 +106,13 @@ class VideoGenerationJob implements ShouldQueue
 
             $totalCost += $imageResult['cost'];
             Log::info("Images generated. Cost: $" . $imageResult['cost']);
+            
+            $prompt->update([
+                'stage_images_completed' => true,
+                'images_completed_at' => now(),
+                'progress_percentage' => 75,
+                'current_stage' => 'Assembling video...',
+            ]);
 
             // Step 4: Assemble video
             Log::info("Assembling video...");
@@ -101,6 +124,13 @@ class VideoGenerationJob implements ShouldQueue
             );
 
             Log::info("Video assembled successfully");
+            
+            $prompt->update([
+                'stage_video_completed' => true,
+                'video_completed_at' => now(),
+                'progress_percentage' => 90,
+                'current_stage' => 'Finalizing...',
+            ]);
 
             // Step 5: Calculate expiration time
             $cleanupInterval = (int) SystemSetting::get('video_cleanup_interval', 24);
@@ -121,6 +151,8 @@ class VideoGenerationJob implements ShouldQueue
             $prompt->update([
                 'actual_cost' => $totalCost,
                 'status' => 'completed',
+                'progress_percentage' => 100,
+                'current_stage' => 'Completed',
             ]);
 
             // Step 8: Record transaction
@@ -132,6 +164,15 @@ class VideoGenerationJob implements ShouldQueue
             );
 
             Log::info("Video generation completed successfully. Total cost: $" . $totalCost);
+            
+            // Send email notification
+            try {
+                $emailService = new EmailNotificationService();
+                $emailService->sendVideoCompletionEmail($prompt->user, $prompt, $video);
+            } catch (\Exception $e) {
+                Log::error("Failed to send completion email: " . $e->getMessage());
+                // Don't fail the job if email fails
+            }
 
         } catch (\Exception $e) {
             Log::error("Video generation failed for prompt ID {$this->promptId}: " . $e->getMessage());
@@ -145,6 +186,14 @@ class VideoGenerationJob implements ShouldQueue
             if ($prompt->credits_used > 0) {
                 $prompt->user->addCredits($prompt->credits_used);
                 Log::info("Refunded {$prompt->credits_used} credits to user {$prompt->user_id}");
+            }
+            
+            // Send failure email notification
+            try {
+                $emailService = new EmailNotificationService();
+                $emailService->sendVideoFailureEmail($prompt->user, $prompt, $e->getMessage());
+            } catch (\Exception $emailError) {
+                Log::error("Failed to send failure email: " . $emailError->getMessage());
             }
 
             throw $e;
