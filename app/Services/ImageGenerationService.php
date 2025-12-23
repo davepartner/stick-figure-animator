@@ -25,6 +25,11 @@ class ImageGenerationService
      */
     public function generateImages(array $scenes, string $model = 'dall-e-3'): array
     {
+        // Check if API key is configured
+        if (empty($this->apiKey)) {
+            throw new \Exception('OpenAI API key is not configured. Please add OPENAI_API_KEY to your .env file.');
+        }
+
         $imagePaths = [];
         $totalCost = 0;
 
@@ -81,7 +86,19 @@ class ImageGenerationService
             ]);
 
             if (!$response->successful()) {
-                throw new \Exception('Image generation API error: ' . $response->body());
+                $errorData = $response->json();
+                $errorMessage = $errorData['error']['message'] ?? 'Unknown API error';
+                
+                // Provide user-friendly error messages
+                if (str_contains($errorMessage, 'API key')) {
+                    throw new \Exception('API key error: Please configure a valid OpenAI API key in your settings.');
+                } elseif (str_contains($errorMessage, 'quota') || str_contains($errorMessage, 'billing')) {
+                    throw new \Exception('API quota exceeded: Your OpenAI account has reached its usage limit. Please check your billing.');
+                } elseif (str_contains($errorMessage, 'content_policy')) {
+                    throw new \Exception('Content policy violation: Your prompt was rejected. Please try a different story.');
+                } else {
+                    throw new \Exception('Image generation error: Unable to create images. Please try again later.');
+                }
             }
 
             $data = $response->json();

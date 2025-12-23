@@ -26,6 +26,10 @@ class VoiceGenerationService
     public function generateVoiceover(string $script, string $model = 'tts-1', string $voice = 'alloy'): array
     {
         try {
+            // Check if API key is configured
+            if (empty($this->apiKey)) {
+                throw new \Exception('OpenAI API key is not configured. Please add OPENAI_API_KEY to your .env file.');
+            }
             // Use OpenAI TTS API
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
@@ -38,7 +42,19 @@ class VoiceGenerationService
             ]);
 
             if (!$response->successful()) {
-                throw new \Exception('Voice generation API error: ' . $response->body());
+                $errorData = $response->json();
+                $errorMessage = $errorData['error']['message'] ?? 'Unknown API error';
+                
+                // Provide user-friendly error messages
+                if (str_contains($errorMessage, 'API key')) {
+                    throw new \Exception('API key error: Please configure a valid OpenAI API key in your settings.');
+                } elseif (str_contains($errorMessage, 'quota') || str_contains($errorMessage, 'billing')) {
+                    throw new \Exception('API quota exceeded: Your OpenAI account has reached its usage limit. Please check your billing.');
+                } elseif (str_contains($errorMessage, 'Invalid')) {
+                    throw new \Exception('Voice generation error: Invalid voice or model selected. Please try a different option.');
+                } else {
+                    throw new \Exception('Voice generation error: Unable to create voiceover. Please try again later.');
+                }
             }
 
             // Save the audio file
