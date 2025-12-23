@@ -33,13 +33,15 @@ class VideoGenerationJob implements ShouldQueue
     public function __construct(int $promptId)
     {
         $this->promptId = $promptId;
-    }
-
-    /**
+    }    /**
      * Execute the job.
      */
     public function handle(): void
     {
+        // Increase PHP execution time limit for this job
+        set_time_limit(600); // 10 minutes
+        ini_set('max_execution_time', '600');
+        
         $prompt = Prompt::findOrFail($this->promptId);
 
         try {
