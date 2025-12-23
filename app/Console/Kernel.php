@@ -36,6 +36,11 @@ class Kernel extends ConsoleKernel
         }
 
         $task->withoutOverlapping();
+
+        // Automatically fail stuck videos every 15 minutes
+        $schedule->command('videos:fail-stuck --timeout=30')
+            ->everyFifteenMinutes()
+            ->withoutOverlapping();
     }
 
     /**

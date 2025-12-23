@@ -129,10 +129,22 @@ class VideoController extends Controller
         ]);
 
         // Dispatch job to queue
-        VideoGenerationJob::dispatch($prompt->id);
+        try {
+            VideoGenerationJob::dispatch($prompt->id);
+        } catch (\Exception $e) {
+            // If job dispatch fails, refund credits and mark as failed
+            $user->addCredits($totalCredits);
+            $prompt->update([
+                'status' => 'failed',
+                'error_message' => 'Failed to queue video generation job: ' . $e->getMessage(),
+            ]);
+            
+            return redirect()->back()
+                ->with('error', 'Failed to start video generation. Your credits have been refunded. Please try again.');
+        }
 
         return redirect()->route('videos.show', $prompt->id)
-            ->with('success', 'Video generation started! This may take a few minutes.');
+            ->with('success', 'Video generation started! This may take 2-5 minutes. Please keep this page open.');
     }
 
     /**

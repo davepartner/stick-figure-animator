@@ -27,6 +27,36 @@
                     <!-- Status Display -->
                     <div id="statusContainer" class="mb-6">
                         @if($prompt->status === 'pending' || $prompt->status === 'processing')
+                            @php
+                                $minutesElapsed = $prompt->created_at->diffInMinutes(now());
+                                $isStuck = $minutesElapsed > 10;
+                            @endphp
+                            
+                            @if($isStuck)
+                                <!-- Warning for stuck videos -->
+                                <div class="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+                                    <div class="flex items-start">
+                                        <svg class="h-6 w-6 text-orange-600 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <div class="flex-1">
+                                            <p class="font-semibold text-orange-800">⚠️ Video generation is taking longer than expected</p>
+                                            <p class="text-sm text-orange-700 mt-1">Started {{ $prompt->created_at->diffForHumans() }}. This usually means the queue worker is not running.</p>
+                                            <div class="mt-3 bg-white border border-orange-300 rounded p-3">
+                                                <p class="text-sm font-medium text-gray-800 mb-2">To fix this issue:</p>
+                                                <ol class="text-sm text-gray-700 list-decimal list-inside space-y-1">
+                                                    <li>Open a terminal in your project directory</li>
+                                                    <li>Run: <code class="bg-gray-100 px-2 py-1 rounded text-xs">php artisan queue:work</code></li>
+                                                    <li>Keep the terminal open while videos are generating</li>
+                                                </ol>
+                                                <p class="text-xs text-gray-600 mt-2">💡 The video will automatically start processing once the queue worker is running.</p>
+                                            </div>
+                                            <p class="text-xs text-orange-600 mt-2">If the queue worker is already running, this video will automatically be marked as failed and your credits will be refunded within 30 minutes.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+                            
                             <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                                 <div class="flex items-center">
                                     <svg class="animate-spin h-5 w-5 text-yellow-600 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -34,8 +64,14 @@
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
                                     <div>
-                                        <p class="font-semibold text-yellow-800">Generating your video...</p>
-                                        <p class="text-sm text-yellow-700 mt-1" id="statusMessage">This may take a few minutes. Please don't close this page.</p>
+                                        <p class="font-semibold text-yellow-800">{{ $prompt->status === 'processing' ? 'Generating your video...' : 'Waiting to start...' }}</p>
+                                        <p class="text-sm text-yellow-700 mt-1" id="statusMessage">
+                                            @if($prompt->status === 'processing')
+                                                Creating images and voiceover. This may take 2-5 minutes.
+                                            @else
+                                                Queued for processing. Started {{ $prompt->created_at->diffForHumans() }}.
+                                            @endif
+                                        </p>
                                     </div>
                                 </div>
                             </div>
