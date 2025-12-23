@@ -60,6 +60,12 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/users', [AdminController::class, 'users'])->name('users');
     Route::patch('/users/{user}/credits', [AdminController::class, 'updateUserCredits'])->name('users.update-credits');
     Route::get('/videos', [AdminController::class, 'videos'])->name('videos');
+    
+    // Credit Management Routes
+    Route::get('/credit-management', [AdminController::class, 'creditManagement'])->name('credit-management');
+    Route::post('/search-user', [AdminController::class, 'searchUser'])->name('search-user');
+    Route::post('/users/{user}/add-credits', [AdminController::class, 'addCredits'])->name('add-credits');
+    Route::post('/users/{user}/remove-credits', [AdminController::class, 'removeCredits'])->name('remove-credits');
 });
 
 require __DIR__.'/auth.php';
