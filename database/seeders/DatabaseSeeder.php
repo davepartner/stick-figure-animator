@@ -12,11 +12,25 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // \App\Models\User::factory(10)->create();
+        // Seed system settings
+        $this->call(SystemSettingsSeeder::class);
 
-        // \App\Models\User::factory()->create([
-        //     'name' => 'Test User',
-        //     'email' => 'test@example.com',
-        // ]);
+        // Create admin user
+        \App\Models\User::create([
+            'name' => 'Admin User',
+            'email' => 'admin@stickfigure.com',
+            'password' => bcrypt('password123'),
+            'role' => 'admin',
+            'credits' => 10000,
+        ]);
+
+        // Create test user
+        \App\Models\User::create([
+            'name' => 'Test User',
+            'email' => 'user@stickfigure.com',
+            'password' => bcrypt('password123'),
+            'role' => 'user',
+            'credits' => 100,
+        ]);
     }
 }

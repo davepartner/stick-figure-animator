@@ -35,6 +35,24 @@ class Transaction extends Model
     }
 
     /**
+     * Create a purchase transaction
+     */
+    public static function recordPurchase(int $userId, float $credits, float $amount, string $gateway, string $transactionId): self
+    {
+        return self::create([
+            'user_id' => $userId,
+            'transaction_id' => $transactionId,
+            'payment_gateway' => $gateway,
+            'type' => 'purchase',
+            'amount' => $amount,
+            'currency' => 'USD',
+            'credits' => $credits,
+            'status' => 'completed',
+            'metadata' => 'Credit purchase',
+        ]);
+    }
+
+    /**
      * Create a usage transaction
      */
     public static function recordUsage(int $userId, float $credits, float $actualCost, string $description): self
